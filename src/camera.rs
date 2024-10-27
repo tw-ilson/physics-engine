@@ -1,7 +1,7 @@
 use bytemuck::{Pod, Zeroable};
 use glm::Mat4;
-use winit::event::{ElementState, WindowEvent, KeyEvent};
-use winit::keyboard::{PhysicalKey, KeyCode};
+use winit::event::{ElementState, KeyEvent, WindowEvent};
+use winit::keyboard::{KeyCode, PhysicalKey};
 
 // changes from OPENGL coordinate system to DIRECTX coordinate system
 #[rustfmt::skip]
@@ -89,6 +89,17 @@ struct InputState {
     down: bool,
 }
 
+impl InputState {
+    fn reset(&mut self) {
+        self.left = false;
+        self.right = false;
+        self.forward = false;
+        self.backward = false;
+        self.up = false;
+        self.down = false;
+    }
+}
+
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct CameraController {
@@ -115,54 +126,27 @@ impl Default for CameraController {
     }
 }
 impl CameraController {
-    pub fn process_keyboard(&mut self, event: &WindowEvent) -> bool {
-        match event {
-            WindowEvent::MouseInput {
-                button: winit::event::MouseButton::Left,
-                ..
-            } => {
-                // self.mouse_pressed = *state == ElementState::Pressed;
-                true
+    pub fn process_keyboard(&mut self, keycode: &KeyCode) {
+        match keycode {
+            KeyCode::KeyW | KeyCode::ArrowUp => {
+                self.input_state.forward = true;
             }
-            WindowEvent::KeyboardInput {
-                event:
-                    KeyEvent {
-                        physical_key: PhysicalKey::Code(keycode),
-                        state,
-                        ..
-                    },
-                ..
-            } => {
-                let is_pressed = *state == ElementState::Pressed;
-                match keycode {
-                    KeyCode::KeyW | KeyCode::ArrowUp => {
-                        self.input_state.forward = is_pressed;
-                        true
-                    }
-                    KeyCode::KeyA | KeyCode::ArrowLeft => {
-                        self.input_state.left = is_pressed;
-                        true
-                    }
-                    KeyCode::KeyS | KeyCode::ArrowDown => {
-                        self.input_state.backward = is_pressed;
-                        true
-                    }
-                    KeyCode::KeyD | KeyCode::ArrowRight => {
-                        self.input_state.right = is_pressed;
-                        true
-                    }
-                    KeyCode::KeyZ => {
-                        self.input_state.up = is_pressed;
-                        true
-                    }
-                    KeyCode::KeyX => {
-                        self.input_state.down = is_pressed;
-                        true
-                    }
-                    _ => false,
-                }
+            KeyCode::KeyA | KeyCode::ArrowLeft => {
+                self.input_state.left = true;
             }
-            _ => false,
+            KeyCode::KeyS | KeyCode::ArrowDown => {
+                self.input_state.backward = true;
+            }
+            KeyCode::KeyD | KeyCode::ArrowRight => {
+                self.input_state.right = true;
+            }
+            KeyCode::KeyZ => {
+                self.input_state.up = true;
+            }
+            KeyCode::KeyX => {
+                self.input_state.down = true;
+            }
+            _ => {}
         }
     }
     // pub fn mouse_look(&mut self, cam: &mut Camera, delta_x: f32, delta_y: f32) {
@@ -194,6 +178,7 @@ impl CameraController {
         if self.input_state.down {
             self.move_down(cam)
         }
+        self.input_state.reset();
     }
     fn move_forward(&mut self, cam: &mut Camera) {
         cam.eye_posn += self.speed * cam.view_direction;

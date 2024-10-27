@@ -60,11 +60,11 @@ impl CreatePipeline for WGPUGraphics<'_> {
         };
 
         let pipeline_layout = self
-            .backend
+            .state
             .device
             .create_pipeline_layout(&pipeline_layout_desc);
 
-        let pipeline = self.backend.device
+        let pipeline = self.state.device
             .create_compute_pipeline(
                 &wgpu::ComputePipelineDescriptor{
                     label: Some("compute pipeline"),
@@ -81,7 +81,7 @@ impl CreatePipeline for WGPUGraphics<'_> {
 
         let bind_group_layouts;
         let pipeline_layout_desc = 
-            if self.backend.bindings.is_some() {
+            if self.state.bindings.is_some() {
                 bind_group_layouts = [
                     self.camera_bind_layout(),
                     self.light_bind_layout(),
@@ -100,10 +100,10 @@ impl CreatePipeline for WGPUGraphics<'_> {
                 }
             };
         let pipeline_layout = self
-            .backend
+            .state
             .device
             .create_pipeline_layout(&pipeline_layout_desc);
-        let pipeline = self.backend
+        let pipeline = self.state
             .device
             .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
                 label: Some("Render Pipeline"),

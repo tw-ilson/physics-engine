@@ -51,7 +51,7 @@ pub struct GraphicsContext<B, W, R> {
     // window
     pub width: u32,
     pub height: u32,
-    pub backend: B,
+    pub state: B,
     pub window: W,
     // pub event: &E,
 
@@ -71,9 +71,6 @@ where
     pub fn set_clear_color(&mut self, (r, g, b, a): (f64, f64, f64, f64)) {
         self.bg_color = Color { r, g, b, a };
     }
-    // why am I doing this?
-    // closures capture calling scope
-    // There is no point except this is how it is defined
     pub fn preloop<F>(&mut self, f: &mut F)
     where
         F: FnMut(&mut GraphicsContext<B, W, R>),

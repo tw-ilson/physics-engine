@@ -41,14 +41,13 @@ fn run_loop_web(mut program: WGPUGraphics, event_loop: EventLoop<()>) {
         })
         .expect("Couldn't append canvas to document body.");
     }
-
- 
-
-
-
 }
 
-pub fn run_loop(mut program: WGPUGraphics, event_loop: EventLoop<()>) {
+pub fn run() -> anyhow::Result<()> {
+    let event_loop = winit::event_loop::EventLoop::new()?;
+    let window = winit::window::Window::new(&event_loop)?;
+    let mut program = WGPUGraphics::new(1240, 860, &window);
+
     let shader_string = include_str!("../shaders/shader.wgsl");
 
     let args: Vec<String> = std::env::args().collect();
@@ -83,17 +82,18 @@ pub fn run_loop(mut program: WGPUGraphics, event_loop: EventLoop<()>) {
     event_loop.run(move |event, window_target| {
         match event {
             Event::WindowEvent {
-                ref event,
+                event,
                 window_id,
             } if window_id == program.window.id() => {
                 match event {
                     WindowEvent::RedrawRequested => {
+                        program.window.request_redraw();
                         program.update(&mut |p| {
                             p.update_camera(&camera_buffer);
                             p.update_light(&light_buffer);
                             p.update_transforms(
                                 &transform_buffers,
-                                mesh_list.iter().map(|m| mesh_transform),
+                                mesh_list.iter().map(|_m| mesh_transform),
                             );
                         });
 
@@ -106,25 +106,25 @@ pub fn run_loop(mut program: WGPUGraphics, event_loop: EventLoop<()>) {
                         event:
                             KeyEvent {
                                 state: ElementState::Pressed,
-                                physical_key: PhysicalKey::Code(KeyCode::Escape),
+                                physical_key: PhysicalKey::Code(keycode),
                                 ..
                             },
                         ..
-                    } => window_target.exit(),
+                    } => match keycode {
+                        KeyCode::Escape | KeyCode::KeyQ => window_target.exit(),
+                        _ => program.process_keyboard(&keycode),
+                    }
                     _ => {}
                 }
-                if program.process_keyboard(event) {}
             }
-            Event::DeviceEvent { event, .. } => {
-                // program.mouse_look(event.delta.0 as f32, 0.0)
-            }
+            // Event::DeviceEvent { event, .. } => {
+            //     // program.mouse_look(event.delta.0 as f32, 0.0)
+            // }
             _ => {}
         }
-    });
+    })?;
+    Ok(())
 }
-fn main() {
-    let event_loop = winit::event_loop::EventLoop::new();
-    let program = WGPUGraphics::new(1240, 860, &event_loop);
-
-    run_loop(program, event_loop);
+fn main() -> anyhow::Result<()> {
+    run()
 }

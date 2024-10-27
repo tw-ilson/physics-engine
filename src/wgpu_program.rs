@@ -12,10 +12,7 @@ use std::borrow::Borrow;
 use std::collections::HashMap;
 // use rayon::prelude::*;
 use winit::{
-    dpi::PhysicalSize,
-    event::WindowEvent,
-    event_loop::EventLoop,
-    window::{Window, WindowBuilder},
+    dpi::PhysicalSize, event::WindowEvent, event_loop::EventLoop, keyboard::KeyCode, window::{Window, WindowBuilder}
 };
 
 pub struct WGPUState<'a> {
@@ -98,62 +95,62 @@ pub type WGPUGraphics<'a> = GraphicsContext<WGPUState<'a>, &'a Window, wgpu::Buf
 impl<'a> WGPUGraphics<'a> {
     // convenience accessors for state
     pub fn size(&self) -> &winit::dpi::PhysicalSize<u32> {
-        return &self.backend.size;
+        return &self.state.size;
     }
     pub fn instance(&self) -> &wgpu::Instance {
-        &self.backend.instance
+        &self.state.instance
     }
     pub fn adapter(&self) -> &wgpu::Adapter {
-        &self.backend.adapter
+        &self.state.adapter
     }
     pub fn device(&self) -> &wgpu::Device {
-        &self.backend.device
+        &self.state.device
     }
     pub fn device_mut(&mut self) -> &mut wgpu::Device {
-        &mut self.backend.device
+        &mut self.state.device
     }
     pub fn surface(&self) -> &wgpu::Surface {
-        &self.backend.surface
+        &self.state.surface
     }
     pub fn queue(&self) -> &wgpu::Queue {
-        &self.backend.queue
+        &self.state.queue
     }
     pub fn config(&self) -> &wgpu::SurfaceConfiguration {
-        &self.backend.config
+        &self.state.config
     }
     pub fn camera(&mut self) -> &mut Camera {
-        &mut self.backend.camera
+        &mut self.state.camera
     }
     pub fn camera_controller(&mut self) -> &mut CameraController {
-        &mut self.backend.camera_controller
+        &mut self.state.camera_controller
     }
     pub fn bindings(&mut self) -> &mut Bindings {
-        self.backend.bindings.as_mut().unwrap()
+        self.state.bindings.as_mut().unwrap()
     }
     pub fn camera_bind_group(&self) -> &wgpu::BindGroup {
-        &self.backend.bindings.as_ref().unwrap().camera_bind_group
+        &self.state.bindings.as_ref().unwrap().camera_bind_group
     }
     pub fn light_bind_group(&self) -> &wgpu::BindGroup {
-        &self.backend.bindings.as_ref().unwrap().camera_bind_group
+        &self.state.bindings.as_ref().unwrap().camera_bind_group
     }
     pub fn transform_bind_groups(&self) -> &Vec<wgpu::BindGroup> {
         // &self.bindings().transform_bind_groups
         &self
-            .backend
+            .state
             .bindings
             .as_ref()
             .unwrap()
             .transform_bind_groups
     }
     pub fn camera_bind_layout(&self) -> &wgpu::BindGroupLayout {
-        &self.backend.bindings.as_ref().unwrap().camera_bind_layout
+        &self.state.bindings.as_ref().unwrap().camera_bind_layout
     }
     pub fn light_bind_layout(&self) -> &wgpu::BindGroupLayout {
-        &self.backend.bindings.as_ref().unwrap().light_bind_layout
+        &self.state.bindings.as_ref().unwrap().light_bind_layout
     }
     pub fn transform_bind_layout(&self) -> &wgpu::BindGroupLayout {
         &self
-            .backend
+            .state
             .bindings
             .as_ref()
             .unwrap()
@@ -169,7 +166,7 @@ impl<'a> WGPUGraphics<'a> {
     ) -> wgpu::Buffer {
         use wgpu::util::DeviceExt;
         let buffer = self
-            .backend
+            .state
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some(name),
@@ -196,13 +193,13 @@ impl<'a> WGPUGraphics<'a> {
         )
     }
     pub fn assign_buffer<T: Zeroable + Pod>(&self, buffer: &wgpu::Buffer, data: &[T]) {
-        self.backend
+        self.state
             .queue
             .write_buffer(buffer, 0, bytemuck::cast_slice(data));
     }
     
     pub fn assign_texture<T: Zeroable + Pod>(&self, texture: Texture, data: &[T]) {
-        self.backend.queue.write_texture(
+        self.state.queue.write_texture(
             wgpu::ImageCopyTexture {
                 texture: &texture.texture,
                 mip_level: 0,
@@ -222,26 +219,26 @@ impl<'a> WGPUGraphics<'a> {
 
     // Camera
     pub fn create_camera_buffer(&mut self) -> wgpu::Buffer {
-        self.backend
+        self.state
             .camera
-            .update_view_proj(&mut self.backend.camera_uniform);
+            .update_view_proj(&mut self.state.camera_uniform);
         self.create_buffer(
             "Camera Buffer",
-            &[self.backend.camera_uniform],
+            &[self.state.camera_uniform],
             wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         )
     }
     pub fn update_camera(&mut self, camera_buffer: &wgpu::Buffer) {
-        self.backend
+        self.state
             .camera_controller
-            .update(&mut self.backend.camera);
-        self.backend
+            .update(&mut self.state.camera);
+        self.state
             .camera
-            .update_view_proj(&mut self.backend.camera_uniform);
-        self.assign_buffer(camera_buffer, &[self.backend.camera_uniform]);
+            .update_view_proj(&mut self.state.camera_uniform);
+        self.assign_buffer(camera_buffer, &[self.state.camera_uniform]);
     }
-    pub fn process_keyboard(&mut self, event: &WindowEvent) -> bool {
-        self.backend.camera_controller.process_keyboard(event)
+    pub fn process_keyboard(&mut self, event: &KeyCode) {
+        self.state.camera_controller.process_keyboard(event)
     }
     // pub fn mouse_look(&mut self, mouse_x: f32, mouse_y: f32) {
     //     self.backend.camera_controller.mouse_look(
@@ -250,23 +247,23 @@ impl<'a> WGPUGraphics<'a> {
 
     //Lights
     pub fn create_light_buffer(&mut self) -> wgpu::Buffer {
-        self.backend
+        self.state
             .light
             .uniform
-            .set(self.backend.camera.get_eye_posn());
+            .set(self.state.camera.get_eye_posn());
         self.create_buffer(
             "Light Buffer",
-            &[self.backend.light.uniform],
+            &[self.state.light.uniform],
             wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         )
     }
 
     pub fn update_light(&mut self, light_buffer: &wgpu::Buffer) {
-        self.backend
+        self.state
             .light
             .uniform
-            .set(self.backend.camera.get_eye_posn());
-        self.assign_buffer(light_buffer, &[self.backend.light.uniform]);
+            .set(self.state.camera.get_eye_posn());
+        self.assign_buffer(light_buffer, &[self.state.light.uniform]);
     }
 
     // Transforms
@@ -393,7 +390,7 @@ impl<'a> WGPUGraphics<'a> {
             height,
             window,
             // event,
-            backend: WGPUState {
+            state: WGPUState {
                 instance,
                 surface,
                 adapter,
@@ -432,7 +429,7 @@ impl<'a> WGPUGraphics<'a> {
     ) {
         // self.set_clear_color((1.0, 1.0, 1.0, 1.0));
         let output = self
-            .backend
+            .state
             .surface
             .get_current_texture()
             .expect("failed to get current texture");
@@ -440,7 +437,7 @@ impl<'a> WGPUGraphics<'a> {
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
         let mut encoder =
-            self.backend
+            self.state
                 .device
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                     label: Some("Render Encoder"),
@@ -457,7 +454,7 @@ impl<'a> WGPUGraphics<'a> {
                     },
                 })],
                 depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                    view: &self.backend.depth_texture.view,
+                    view: &self.state.depth_texture.view,
                     depth_ops: Some(wgpu::Operations {
                         load: wgpu::LoadOp::Clear(1.0),
                         store: wgpu::StoreOp::Store,
@@ -487,28 +484,28 @@ impl<'a> WGPUGraphics<'a> {
     ) {
         use crate::bindings::*;
         let camera_bind_layout = new_uniform_bind_group_layout(
-            &self.backend.device,
+            &self.state.device,
             "camera_bind_layout",
             &[uniform_layout_entry()],
         );
         let light_bind_layout = new_uniform_bind_group_layout(
-            &self.backend.device,
+            &self.state.device,
             "light_bind_layout",
             &[uniform_layout_entry()],
         );
         let transform_bind_layout = new_uniform_bind_group_layout(
-            &self.backend.device,
+            &self.state.device,
             "transform_bind_layout",
             &[uniform_layout_entry()],
         );
         let camera_bind_group = create_uniform_bind_group(
-            &self.backend.device,
+            &self.state.device,
             &camera_bind_layout,
             camera_buffer,
             "camera_bind_group",
         );
         let light_bind_group = create_uniform_bind_group(
-            &self.backend.device,
+            &self.state.device,
             &light_bind_layout,
             light_buffer,
             "light_bind_group",
@@ -518,14 +515,14 @@ impl<'a> WGPUGraphics<'a> {
             .enumerate()
             .map(|(i, buffer)| {
                 create_uniform_bind_group(
-                    &self.backend.device,
+                    &self.state.device,
                     &transform_bind_layout,
                     buffer,
                     &format!("transform_bind_group_{}", i),
                 )
             })
             .collect();
-        self.backend.bindings = Some(Bindings {
+        self.state.bindings = Some(Bindings {
             camera_bind_layout,
             light_bind_layout,
             camera_bind_group,
@@ -544,9 +541,9 @@ impl GraphicsProgram for WGPUGraphics<'_> {
         // println!("Adapter features:\n{:#?}", self.adapter().features());
     }
     fn default_state(&mut self) {
-        self.backend
+        self.state
             .surface
-            .configure(&self.backend.device, self.config());
+            .configure(&self.state.device, self.config());
     }
 }
 impl Into<wgpu::Color> for Color {

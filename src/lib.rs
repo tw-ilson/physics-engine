@@ -11,4 +11,5 @@ pub mod shader;
 pub mod texture;
 pub mod util;
 pub mod wgpu_program;
+pub mod robot;
 extern crate nalgebra_glm as glm;

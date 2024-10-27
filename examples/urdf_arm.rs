@@ -1,18 +1,23 @@
 use std::f32::consts::PI;
 
-use physics_engine::bindings::*;
-use physics_engine::geometry::{BoxMesh, CylinderMesh, Polyhedron, TriMesh};
-use physics_engine::graphics::GraphicsProgram;
-use physics_engine::shader::CreatePipeline;
-use physics_engine::urdf::*;
-use physics_engine::wgpu_program::{MeshBuffer, WGPUGraphics};
 use std::str::FromStr;
+use wgpu_robotic_simulator::bindings::*;
+use wgpu_robotic_simulator::geometry::{BoxMesh, CylinderMesh, Polyhedron, TriMesh};
+use wgpu_robotic_simulator::graphics::GraphicsProgram;
+use wgpu_robotic_simulator::robot::RobotGraphics;
+use wgpu_robotic_simulator::shader::CreatePipeline;
+use wgpu_robotic_simulator::urdf::*;
+use wgpu_robotic_simulator::wgpu_program::{MeshBuffer, WGPUGraphics};
+use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::{
     event::*,
     event_loop::{ControlFlow, EventLoop},
 };
 
-pub fn run_loop(mut program: WGPUGraphics, event_loop: EventLoop<()>) {
+pub fn run() -> anyhow::Result<()> {
+    let event_loop = winit::event_loop::EventLoop::new()?;
+    let window = winit::window::Window::new(&event_loop)?;
+    let mut program = WGPUGraphics::new(1240, 860, &window);
     program.get_backend_info();
 
     let mut robot = RobotDescriptor::from_str(include_str!("../assets/xarm.urdf"))
@@ -34,8 +39,7 @@ pub fn run_loop(mut program: WGPUGraphics, event_loop: EventLoop<()>) {
     program.preloop(&mut |_| {
         println!("Called one time before the loop!");
     });
-    event_loop.run(move |event, _, control_flow| {
-        *control_flow = ControlFlow::Poll;
+    event_loop.run(move |event, control_flow| {
         match event {
             // INPUT
             Event::WindowEvent {
@@ -43,54 +47,74 @@ pub fn run_loop(mut program: WGPUGraphics, event_loop: EventLoop<()>) {
                 window_id,
             } if window_id == program.window.id() => {
                 match event {
-                    WindowEvent::CloseRequested
-                     => *control_flow = ControlFlow::Exit,
-                    WindowEvent::KeyboardInput { input, .. } => {
-                        match input.virtual_keycode {
-                            Some(VirtualKeyCode::Escape) => if input.state == ElementState::Pressed {*control_flow = ControlFlow::Exit},
-                            // Some(VirtualKeyCode::Q) => *control_flow = ControlFlow::Exit,
-                            _ => {}
+                    WindowEvent::CloseRequested => control_flow.exit(),
+                    WindowEvent::KeyboardInput {
+                        event:
+                            KeyEvent {
+                                state: ElementState::Pressed,
+                                physical_key: PhysicalKey::Code(keycode),
+                                ..
+                            },
+                        ..
+                    } => match keycode {
+                        KeyCode::Escape | KeyCode::KeyQ => control_flow.exit(),
+                        keycode => {
+                            program.process_keyboard(keycode);
                         }
-                    }
-                    _ => {},
-                }
-                if program.process_keyboard(event){}
-                
-            },
-            Event::DeviceEvent {
-                event: DeviceEvent::MouseMotion{ delta, },
-                .. // We're not using device_id currently
-            } =>  {
-                // program.mouse_look(
-                //     delta.0 as f32,
-                //     0.0
-                //     // delta.1 as f32
-                //     )
-            },
-            Event::RedrawRequested(window_id) if window_id == program.window.id() => {
-                //UPDATE
-                program.update(&mut |p| {
-                    p.update_camera(&camera_buffer);
-                    p.update_light(&light_buffer);
-                    increment = (increment + 0.02) % (2.0*PI);
-                    robot.set_joint_position(&[0.,0.,increment.cos(),-increment.cos(),-increment.cos(),0.,0.,0.,0.,0.,0.,0.,], false);
-                    robot.build();
-                    p.robot_assign_transform_buffers(&robot, &transform_buffers);
-                });
+                    },
+                    WindowEvent::RedrawRequested => {
+                        program.window.request_redraw();
+                        //UPDATE
+                        program.update(&mut |p| {
+                            p.update_camera(&camera_buffer);
+                            p.update_light(&light_buffer);
+                            increment = (increment + 0.02) % (2.0 * PI);
+                            robot.set_joint_position(
+                                &[
+                                    0.,
+                                    0.,
+                                    increment.cos(),
+                                    -increment.cos(),
+                                    -increment.cos(),
+                                    0.,
+                                    0.,
+                                    0.,
+                                    0.,
+                                    0.,
+                                    0.,
+                                    0.,
+                                ],
+                                false,
+                            );
+                            robot.build();
+                            p.robot_assign_transform_buffers(&robot, &transform_buffers);
+                        });
 
-                // RENDER
-                program.render(&mut |p| {
-                    p.draw_robot(&robot, &mesh_buffers, &pipeline);
-                });
+                        // RENDER
+                        program.render(&mut |p| {
+                            p.draw_robot(&robot, &mesh_buffers, &pipeline);
+                        });
+                    }
+                    // WindowEvent::DeviceEvent {
+                    //     event: DeviceEvent::MouseMotion{ delta, },
+                    //     .. // We're not using device_id currently
+                    // } =>  {
+                    //     // program.mouse_look(
+                    //     //     delta.0 as f32,
+                    //     //     0.0
+                    //     //     // delta.1 as f32
+                    //     //     )
+                    // },
+                    _ => {}
+                }
             }
-            Event::MainEventsCleared => program.window.request_redraw(),
             _ => {}
         }
-    });
+    })?;
+    Ok(())
 }
-fn main() {
-    let event_loop = winit::event_loop::EventLoop::new();
-    let program = WGPUGraphics::new(1240, 860, &event_loop);
 
-    run_loop(program, event_loop);
+pub fn main() -> anyhow::Result<()> {
+    run()?;
+    Ok(())
 }

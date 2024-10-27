@@ -1,8 +1,8 @@
-use physics_engine::urdf::RobotGraphics;
-use physics_engine::{geometry::*, light};
-use physics_engine::wgpu_program::WGPUGraphics;
-use physics_engine::physics::*;
-use physics_engine::shader::CreatePipeline;
+use wgpu_robotic_simulator::robot::RobotGraphics;
+use wgpu_robotic_simulator::{geometry::*, light};
+use wgpu_robotic_simulator::wgpu_program::WGPUGraphics;
+use wgpu_robotic_simulator::physics::*;
+use wgpu_robotic_simulator::shader::CreatePipeline;
 
 use nalgebra_glm as glm;
 use rand::prelude::*;
@@ -138,8 +138,7 @@ fn run_loop(mut program: WGPUGraphics, event_loop: EventLoop<()>) {
         println!("Called one time before the loop!");
     });
 
-    event_loop.run(move |event, _, control_flow| {
-        *control_flow = ControlFlow::Poll;
+    event_loop.run(move |event, control_flow| {
         match event {
             // INPUT
             Event::WindowEvent {
@@ -147,8 +146,7 @@ fn run_loop(mut program: WGPUGraphics, event_loop: EventLoop<()>) {
                 window_id,
             } if window_id == program.window.id() => {
                 match event {
-                    WindowEvent::CloseRequested
-                     => *control_flow = ControlFlow::Exit,
+                    WindowEvent::CloseRequested => control_flow.exit(),
                     WindowEvent::KeyboardInput { input, .. } => {
                         match input.virtual_keycode {
                             Some(VirtualKeyCode::Escape) => if input.state == ElementState::Pressed {*control_flow = ControlFlow::Exit},
